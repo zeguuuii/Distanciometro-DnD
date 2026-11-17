@@ -1,0 +1,880 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distanciômetro DnD</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 12px;
+    background: #202124;
+    color: #eee;
+    font-family: Arial, sans-serif;
+}
+
+h1 {
+    font-size: 17px;
+    margin: 0 0 10px;
+}
+
+.painel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    background: #303134;
+    padding: 9px 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+input, button {
+    padding: 6px 8px;
+    border-radius: 5px;
+    border: 1px solid #666;
+    font-size: 12px;
+}
+
+input {
+    background: #202124;
+    color: white;
+    max-width: 110px;
+}
+
+input[type="color"] {
+    width: 38px;
+    height: 29px;
+    padding: 2px;
+    cursor: pointer;
+}
+
+button {
+    background: #d68b36;
+    color: #111;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #f0a94e;
+}
+
+.distancias {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    flex-wrap: wrap;
+    background: #303134;
+    padding: 7px 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 11px;
+}
+
+.distancias strong {
+    display: inline-block;
+    color: #f0a94e;
+    font-size: 17px;
+    margin-left: 5px;
+}
+
+#mapa-container {
+    position: relative;
+    background: #151515;
+    height: 78vh;
+    min-height: 350px;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: crosshair;
+}
+
+canvas {
+    display: block;
+    position: absolute;
+    transform-origin: 0 0;
+}
+
+#aviso {
+    color: #aaa;
+    text-align: center;
+    padding: 30px;
+}
+
+.ajuda {
+    color: #aaa;
+    font-size: 11px;
+    margin-top: 7px;
+}
+
+/* Calculadora de ritmo de viagem */
+.viagem {
+    background: #303134;
+    padding: 12px;
+    border-radius: 8px;
+    margin: 12px 0;
+    font-size: 12px;
+}
+
+.viagem h2 {
+    font-size: 15px;
+    margin: 0 0 10px;
+}
+
+.viagem-controles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-bottom: 12px;
+}
+
+.viagem label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.viagem select,
+.viagem input[type="number"] {
+    background: #202124;
+    color: #eee;
+    border: 1px solid #666;
+    border-radius: 5px;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.viagem input[type="number"] {
+    width: 80px;
+}
+
+.viagem input[type="checkbox"] {
+    accent-color: #d68b36;
+}
+
+.tabela-ritmo {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+    max-width: 650px;
+}
+
+.tabela-ritmo th,
+.tabela-ritmo td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #555;
+}
+
+.tabela-ritmo th {
+    color: #f0a94e;
+    font-weight: bold;
+}
+
+.tabela-ritmo tr:last-child td {
+    border-bottom: none;
+}
+
+.resultado-viagem {
+    margin-top: 12px;
+    padding: 9px 11px;
+    background: #202124;
+    border-radius: 6px;
+}
+
+.resultado-viagem strong {
+    color: #f0a94e;
+    font-size: 17px;
+    margin-left: 5px;
+}
+
+@media (max-width: 520px) {
+    .tabela-ritmo th,
+    .tabela-ritmo td {
+        padding: 6px 4px;
+        font-size: 11px;
+    }
+}
+
+
+.tempos-viagem {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 22px;
+    background: #303134;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 0 0 8px;
+    font-size: 11px;
+}
+
+.tempos-viagem strong {
+    display: inline-block;
+    color: #f0a94e;
+    font-size: 14px;
+    margin-left: 4px;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>Distanciômetro DnD</h1>
+
+<div class="painel">
+
+<label>
+Carregar mapa:
+<input type="file" id="arquivo" accept="image/*">
+</label>
+
+<label>
+Pixels por 1 km:
+<input type="number" id="escala" value="100" min="0.001" step="any">
+</label>
+
+<label>
+Cor da linha:
+<input type="color" id="corLinha" value="#ff9f32">
+</label>
+
+<button onclick="desfazer()">Desfazer (CTRL+Z)</button>
+<button onclick="limpar()">Limpar linha (ESC)</button>
+<button onclick="resetarZoom()">Centralizar mapa</button>
+
+</div>
+
+<div class="distancias">
+
+<div>
+Distância total
+<strong id="total">0 m</strong>
+</div>
+
+<div>
+Último segmento
+<strong id="segmento">0 m</strong>
+</div>
+
+<div>
+Zoom
+<strong id="zoomTexto">100%</strong>
+</div>
+
+</div>
+
+<div class="tempos-viagem">
+    <strong style="margin-left:0; color:#eee; font-size:11px;">Tempo de viagem para a distância total:</strong>
+    <span>Rápido<strong id="tempoRapido">0 min</strong></span>
+    <span>Normal<strong id="tempoNormal">0 min</strong></span>
+    <span>Lento<strong id="tempoLento">0 min</strong></span>
+    <label style="margin-left: auto;">
+        <input type="checkbox" id="limiteOitoHorasMapa" checked>
+        Limite de 8h por dia
+    </label>
+</div>
+
+<div id="mapa-container">
+<canvas id="mapa" hidden></canvas>
+<p id="aviso">Carregue uma imagem para começar.</p>
+</div>
+
+<p class="ajuda">
+Rodinha: zoom | Botão do meio: mover mapa |
+Espaço + botão esquerdo: mover mapa |
+CTRL + Z: desfazer ponto | ESC: limpar linha
+</p>
+
+
+<div class="viagem">
+    <h2>Calculadora de Ritmo de Viagem</h2>
+
+    <div class="viagem-controles">
+        <label>
+            Ritmo:
+            <select id="ritmoViagem">
+                <option value="rapido">Rápido</option>
+                <option value="normal" selected>Normal</option>
+                <option value="lento">Lento</option>
+            </select>
+        </label>
+
+        <label>
+            Dias:
+            <input type="number" id="diasViagem" value="0" min="0" step="1">
+        </label>
+
+        <label>
+            Horas:
+            <input type="number" id="horasViagem" value="1" min="0" step="1">
+        </label>
+
+        <label>
+            Minutos:
+            <input type="number" id="minutosViagem" value="0" min="0" step="1">
+        </label>
+
+        <label>
+            <input type="checkbox" id="limiteOitoHoras" checked>
+            Considerar limite de 8 horas de viagem por dia
+        </label>
+    </div>
+
+    <table class="tabela-ritmo">
+        <thead>
+            <tr>
+                <th>Ritmo</th>
+                <th>Minuto</th>
+                <th>Hora</th>
+                <th id="cabecalhoDia">Dia (8h de viagem)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Rápido</td>
+                <td>120 m</td>
+                <td>6 km</td>
+                <td id="diaRapido">45 km</td>
+            </tr>
+            <tr>
+                <td>Normal</td>
+                <td>90 m</td>
+                <td>4,5 km</td>
+                <td id="diaNormal">36 km</td>
+            </tr>
+            <tr>
+                <td>Lento</td>
+                <td>60 m</td>
+                <td>3 km</td>
+                <td id="diaLento">27 km</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="resultado-viagem">
+        Distância percorrida:
+        <strong id="resultadoViagem">4,5 km</strong>
+    </div>
+    <p class="ajuda">
+        Com o limite ativado, o cálculo diário usa os valores da tabela.
+        Desativando-o, considera deslocamento contínuo durante 24 horas.
+    </p>
+</div>
+
+<script>
+
+const canvas = document.getElementById("mapa");
+const ctx = canvas.getContext("2d");
+const container = document.getElementById("mapa-container");
+
+const arquivo = document.getElementById("arquivo");
+const escala = document.getElementById("escala");
+const corLinha = document.getElementById("corLinha");
+
+let imagem = new Image();
+let pontos = [];
+let distanciaTotal = 0;
+let ultimoSegmento = 0;
+
+let zoom = 1;
+let offsetX = 0;
+let offsetY = 0;
+
+let arrastando = false;
+let inicioX = 0;
+let inicioY = 0;
+let espacoPressionado = false;
+
+// CONFIGURAÇÃO DO TAMANHO DAS LINHAS E PONTOS
+
+const ESPESSURA_BASE = 6;
+const ESPESSURA_MINIMA = 4;
+const ESPESSURA_MAXIMA = 40;
+
+const PONTO_BASE = 10;
+const PONTO_MINIMO = 8;
+const PONTO_MAXIMO = 20;
+
+// Carregar mapa
+
+arquivo.addEventListener("change", function(event) {
+
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+
+    imagem.onload = function() {
+
+        canvas.width = imagem.naturalWidth;
+        canvas.height = imagem.naturalHeight;
+
+        canvas.hidden = false;
+
+        pontos = [];
+        distanciaTotal = 0;
+        ultimoSegmento = 0;
+
+        document.getElementById("aviso").hidden = true;
+
+        resetarZoom();
+        desenhar();
+
+        URL.revokeObjectURL(url);
+    };
+
+    imagem.src = url;
+});
+
+// Tamanho adaptável ao zoom
+
+function tamanhoAdaptavel(base, minimo, maximo) {
+
+    return Math.max(
+        minimo,
+        Math.min(maximo, base / zoom)
+    );
+}
+
+// Desenhar mapa e régua
+
+function desenhar() {
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(imagem, 0, 0);
+
+    if (pontos.length === 0) return;
+
+    const espessura = tamanhoAdaptavel(
+        ESPESSURA_BASE,
+        ESPESSURA_MINIMA,
+        ESPESSURA_MAXIMA
+    );
+
+    const tamanhoPonto = tamanhoAdaptavel(
+        PONTO_BASE,
+        PONTO_MINIMO,
+        PONTO_MAXIMO
+    );
+
+    const cor = corLinha.value;
+
+    // Linha
+
+    ctx.beginPath();
+    ctx.moveTo(pontos[0].x, pontos[0].y);
+
+    for (let i = 1; i < pontos.length; i++) {
+        ctx.lineTo(pontos[i].x, pontos[i].y);
+    }
+
+    ctx.strokeStyle = cor;
+    ctx.lineWidth = espessura;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // Pontos
+
+    for (const ponto of pontos) {
+
+        ctx.beginPath();
+
+        ctx.arc(
+            ponto.x,
+            ponto.y,
+            tamanhoPonto,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+
+        ctx.strokeStyle = cor;
+        ctx.lineWidth = espessura;
+        ctx.stroke();
+    }
+}
+
+// Atualizar visual
+
+function aplicarVisual() {
+
+    canvas.style.transform =
+        `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
+
+    document.getElementById("zoomTexto").textContent =
+        Math.round(zoom * 100) + "%";
+}
+
+function resetarZoom() {
+
+    const area = container.getBoundingClientRect();
+
+    zoom = Math.min(
+        area.width / canvas.width,
+        area.height / canvas.height,
+        1
+    );
+
+    offsetX = (area.width - canvas.width * zoom) / 2;
+    offsetY = (area.height - canvas.height * zoom) / 2;
+
+    aplicarVisual();
+    desenhar();
+}
+
+function zoomNoPonto(novoZoom, mouseX, mouseY) {
+
+    const xMapa = (mouseX - offsetX) / zoom;
+    const yMapa = (mouseY - offsetY) / zoom;
+
+    zoom = Math.max(0.05, Math.min(10, novoZoom));
+
+    offsetX = mouseX - xMapa * zoom;
+    offsetY = mouseY - yMapa * zoom;
+
+    aplicarVisual();
+    desenhar();
+}
+
+// Zoom
+
+container.addEventListener("wheel", function(event) {
+
+    if (canvas.hidden) return;
+
+    event.preventDefault();
+
+    const rect = container.getBoundingClientRect();
+
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    const fator = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+
+    zoomNoPonto(zoom * fator, mouseX, mouseY);
+
+}, { passive: false });
+
+// Movimentação
+
+container.addEventListener("mousedown", function(event) {
+
+    if (canvas.hidden) return;
+
+    if (event.button === 1 || (event.button === 0 && espacoPressionado)) {
+
+        arrastando = true;
+        inicioX = event.clientX - offsetX;
+        inicioY = event.clientY - offsetY;
+
+        event.preventDefault();
+    }
+});
+
+window.addEventListener("mousemove", function(event) {
+
+    if (!arrastando) return;
+
+    offsetX = event.clientX - inicioX;
+    offsetY = event.clientY - inicioY;
+
+    aplicarVisual();
+});
+
+window.addEventListener("mouseup", function() {
+    arrastando = false;
+});
+
+container.addEventListener("contextmenu", function(event) {
+    event.preventDefault();
+});
+
+// Adicionar pontos
+
+container.addEventListener("click", function(event) {
+
+    if (canvas.hidden || arrastando || espacoPressionado) return;
+    if (event.button !== 0) return;
+
+    const rect = container.getBoundingClientRect();
+
+    const x = (event.clientX - rect.left - offsetX) / zoom;
+    const y = (event.clientY - rect.top - offsetY) / zoom;
+
+    if (x < 0 || y < 0 || x > canvas.width || y > canvas.height) return;
+
+    pontos.push({x, y});
+
+    recalcularDistancias();
+    desenhar();
+});
+
+// Desfazer último ponto
+
+function desfazer() {
+
+    if (pontos.length === 0) return;
+
+    pontos.pop();
+
+    recalcularDistancias();
+    desenhar();
+}
+
+// Recalcular distâncias
+
+function recalcularDistancias() {
+
+    distanciaTotal = 0;
+    ultimoSegmento = 0;
+
+    for (let i = 1; i < pontos.length; i++) {
+
+        const dx = pontos[i].x - pontos[i - 1].x;
+        const dy = pontos[i].y - pontos[i - 1].y;
+
+        const distancia = Math.sqrt(dx * dx + dy * dy);
+
+        distanciaTotal += distancia;
+        ultimoSegmento = distancia;
+    }
+
+    atualizar();
+}
+
+// Teclado
+
+document.addEventListener("keydown", function(event) {
+
+    if (event.code === "Space" && !event.repeat) {
+        espacoPressionado = true;
+        event.preventDefault();
+    }
+
+    if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "z"
+    ) {
+        event.preventDefault();
+        desfazer();
+    }
+
+    if (event.key === "Escape") {
+        limpar();
+    }
+});
+
+document.addEventListener("keyup", function(event) {
+
+    if (event.code === "Space") {
+        espacoPressionado = false;
+    }
+});
+
+window.addEventListener("blur", function() {
+    espacoPressionado = false;
+    arrastando = false;
+});
+
+// Distâncias
+
+function formatarDistancia(pixels) {
+
+    const pixelsPorKm = Number(escala.value);
+
+    if (!pixelsPorKm || pixelsPorKm <= 0) {
+        return "Escala inválida";
+    }
+
+    const metros = Math.round((pixels / pixelsPorKm) * 1000);
+
+    const km = Math.floor(metros / 1000);
+    const m = metros % 1000;
+
+    if (km === 0) return m + " m";
+    if (m === 0) return km + " km";
+
+    return km + " km e " + m + " m";
+}
+
+
+function formatarTempoDeViagem(distanciaKm, ritmo) {
+    if (!Number.isFinite(distanciaKm) || distanciaKm <= 0) return "0 min";
+
+    const dados = ritmos[ritmo];
+    const limiteAtivo = document.getElementById("limiteOitoHorasMapa").checked;
+
+    // Com o limite ativo, usa a coluna "Dia" da tabela.
+    // Sem o limite, considera 24 horas contínuas de deslocamento.
+    const distanciaPorDia = limiteAtivo ? dados.dia : dados.hora * 24;
+
+    const dias = Math.floor(distanciaKm / distanciaPorDia);
+    let restanteKm = distanciaKm - dias * distanciaPorDia;
+
+    const horas = Math.floor(restanteKm / dados.hora);
+    restanteKm -= horas * dados.hora;
+
+    const minutos = Math.round(restanteKm / (dados.minuto / 1000));
+
+    const partes = [];
+    if (dias > 0) partes.push(dias + (dias === 1 ? " dia" : " dias"));
+    if (horas > 0) partes.push(horas + (horas === 1 ? " hora" : " horas"));
+    if (minutos > 0) partes.push(minutos + (minutos === 1 ? " minuto" : " minutos"));
+
+    return partes.length ? partes.join(", ") : "menos de 1 minuto";
+}
+
+function atualizarTemposDoMapa() {
+    const pixelsPorKm = Number(escala.value);
+    const distanciaKm = pixelsPorKm > 0
+        ? (distanciaTotal / pixelsPorKm)
+        : 0;
+
+    document.getElementById("tempoRapido").textContent =
+        formatarTempoDeViagem(distanciaKm, "rapido");
+    document.getElementById("tempoNormal").textContent =
+        formatarTempoDeViagem(distanciaKm, "normal");
+    document.getElementById("tempoLento").textContent =
+        formatarTempoDeViagem(distanciaKm, "lento");
+}
+
+function atualizar() {
+
+    document.getElementById("total").textContent =
+        formatarDistancia(distanciaTotal);
+
+    document.getElementById("segmento").textContent =
+        formatarDistancia(ultimoSegmento);
+
+    atualizarTemposDoMapa();
+}
+
+escala.addEventListener("input", atualizar);
+atualizar();
+
+// Atualizar cor sem apagar os pontos
+
+corLinha.addEventListener("input", desenhar);
+
+// Limpar linha
+
+function limpar() {
+
+    pontos = [];
+    distanciaTotal = 0;
+    ultimoSegmento = 0;
+
+    atualizar();
+    desenhar();
+}
+
+
+// Calculadora de ritmo de viagem
+
+const ritmoViagem = document.getElementById("ritmoViagem");
+const diasViagem = document.getElementById("diasViagem");
+const horasViagem = document.getElementById("horasViagem");
+const minutosViagem = document.getElementById("minutosViagem");
+const limiteOitoHoras = document.getElementById("limiteOitoHoras");
+
+const ritmos = {
+    rapido: { minuto: 120, hora: 6, dia: 45 },
+    normal: { minuto: 90, hora: 4.5, dia: 36 },
+    lento: { minuto: 60, hora: 3, dia: 27 }
+};
+
+function formatarDistanciaViagem(km) {
+    if (!Number.isFinite(km) || km < 0) return "—";
+
+    const metros = Math.round(km * 1000);
+    const kmInteiros = Math.floor(metros / 1000);
+    const metrosRestantes = metros % 1000;
+
+    if (kmInteiros === 0) {
+        return metrosRestantes.toLocaleString("pt-BR") + " m";
+    }
+
+    if (metrosRestantes === 0) {
+        return kmInteiros.toLocaleString("pt-BR") + " km";
+    }
+
+    return kmInteiros.toLocaleString("pt-BR") + " km e " +
+        metrosRestantes.toLocaleString("pt-BR") + " m";
+}
+
+function atualizarRitmoViagem() {
+    const ritmo = ritmos[ritmoViagem.value];
+    const dias = Number(diasViagem.value);
+    const horas = Number(horasViagem.value);
+    const minutos = Number(minutosViagem.value);
+    const considerarLimite = limiteOitoHoras.checked;
+
+    // A coluna diária alterna entre os valores fornecidos e 24h contínuas.
+    const fatorDia = considerarLimite ? 1 : 24;
+    document.getElementById("cabecalhoDia").textContent =
+        considerarLimite ? "Dia (8h de viagem)" : "Dia (24h contínuas)";
+
+    document.getElementById("diaRapido").textContent =
+        (considerarLimite ? 45 : ritmos.rapido.hora * fatorDia).toLocaleString("pt-BR") + " km";
+    document.getElementById("diaNormal").textContent =
+        (considerarLimite ? 36 : ritmos.normal.hora * fatorDia).toLocaleString("pt-BR") + " km";
+    document.getElementById("diaLento").textContent =
+        (considerarLimite ? 27 : ritmos.lento.hora * fatorDia).toLocaleString("pt-BR") + " km";
+
+    if (
+        !Number.isFinite(dias) || dias < 0 ||
+        !Number.isFinite(horas) || horas < 0 ||
+        !Number.isFinite(minutos) || minutos < 0
+    ) {
+        document.getElementById("resultadoViagem").textContent = "—";
+        return;
+    }
+
+    // Cada dia equivale a 8 horas de viagem com o limite ligado,
+    // ou a 24 horas contínuas com o limite desligado.
+    const distanciaPorDia = considerarLimite
+        ? ritmo.dia
+        : ritmo.hora * 24;
+
+    const distanciaKm =
+        (dias * distanciaPorDia) +
+        (horas * ritmo.hora) +
+        (minutos * ritmo.minuto / 1000);
+
+    document.getElementById("resultadoViagem").textContent =
+        formatarDistanciaViagem(distanciaKm);
+}
+
+ritmoViagem.addEventListener("change", atualizarRitmoViagem);
+diasViagem.addEventListener("input", atualizarRitmoViagem);
+horasViagem.addEventListener("input", atualizarRitmoViagem);
+minutosViagem.addEventListener("input", atualizarRitmoViagem);
+
+const limiteOitoHorasMapa = document.getElementById("limiteOitoHorasMapa");
+
+limiteOitoHorasMapa.addEventListener("change", function() {
+    atualizarTemposDoMapa();
+});
+
+limiteOitoHoras.addEventListener("change", function() {
+    atualizarRitmoViagem();
+});
+
+
+atualizarRitmoViagem();
+
+
+</script>
+
+</body>
+</html>
